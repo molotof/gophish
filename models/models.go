@@ -10,6 +10,7 @@ import (
 
 	"bitbucket.org/liamstask/goose/lib/goose"
 
+	_ "github.com/go-sql-driver/mysql"
 	"github.com/gophish/gophish/config"
 	"github.com/jinzhu/gorm"
 	_ "github.com/mattn/go-sqlite3" // Blank import needed to import sqlite3
@@ -27,6 +28,7 @@ var Logger = log.New(os.Stdout, " ", log.Ldate|log.Ltime|log.Lshortfile)
 const (
 	CAMPAIGN_IN_PROGRESS string = "In progress"
 	CAMPAIGN_QUEUED      string = "Queued"
+	CAMPAIGN_CREATED     string = "Created"
 	CAMPAIGN_EMAILS_SENT string = "Emails Sent"
 	CAMPAIGN_COMPLETE    string = "Completed"
 	EVENT_SENT           string = "Email Sent"
@@ -60,6 +62,23 @@ func generateSecureKey() string {
 	return fmt.Sprintf("%x", k)
 }
 
+func chooseDBDriver(name, openStr string) goose.DBDriver {
+	d := goose.DBDriver{Name: name, OpenStr: openStr}
+
+	switch name {
+	case "mysql":
+		d.Import = "github.com/go-sql-driver/mysql"
+		d.Dialect = &goose.MySqlDialect{}
+
+	// Default database is sqlite3
+	default:
+		d.Import = "github.com/mattn/go-sqlite3"
+		d.Dialect = &goose.Sqlite3Dialect{}
+	}
+
+	return d
+}
+
 // Setup initializes the Conn object
 // It also populates the Gophish Config object
 func Setup() error {
@@ -71,12 +90,7 @@ func Setup() error {
 	migrateConf := &goose.DBConf{
 		MigrationsDir: config.Conf.MigrationsPath,
 		Env:           "production",
-		Driver: goose.DBDriver{
-			Name:    "sqlite3",
-			OpenStr: config.Conf.DBPath,
-			Import:  "github.com/mattn/go-sqlite3",
-			Dialect: &goose.Sqlite3Dialect{},
-		},
+		Driver:        chooseDBDriver(config.Conf.DBName, config.Conf.DBPath),
 	}
 	// Get the latest possible migration
 	latest, err := goose.GetMostRecentDBVersion(migrateConf.MigrationsDir)
@@ -85,7 +99,7 @@ func Setup() error {
 		return err
 	}
 	// Open our database connection
-	db, err = gorm.Open("sqlite3", config.Conf.DBPath)
+	db, err = gorm.Open(config.Conf.DBName, config.Conf.DBPath)
 	db.LogMode(false)
 	db.SetLogger(Logger)
 	db.DB().SetMaxOpenConns(1)

@@ -3,9 +3,10 @@ package models
 import (
 	"crypto/rand"
 	"fmt"
-	"io"
 	"log"
+	"math/big"
 	"net"
+	"net/mail"
 
 	"github.com/jinzhu/gorm"
 	"github.com/oschwald/maxminddb-golang"
@@ -68,17 +69,38 @@ func (r *Result) UpdateGeo(addr string) error {
 
 // GenerateId generates a unique key to represent the result
 // in the database
-func (r *Result) GenerateId() {
+func (r *Result) GenerateId() error {
 	// Keep trying until we generate a unique key (shouldn't take more than one or two iterations)
-	k := make([]byte, 32)
+	const alphaNum = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
+	k := make([]byte, 7)
 	for {
-		io.ReadFull(rand.Reader, k)
-		r.RId = fmt.Sprintf("%x", k)
-		err := db.Table("results").Where("id=?", r.RId).First(&Result{}).Error
+		for i := range k {
+			idx, err := rand.Int(rand.Reader, big.NewInt(int64(len(alphaNum))))
+			if err != nil {
+				return err
+			}
+			k[i] = alphaNum[idx.Int64()]
+		}
+		r.RId = string(k)
+		err := db.Table("results").Where("r_id=?", r.RId).First(&Result{}).Error
 		if err == gorm.ErrRecordNotFound {
 			break
 		}
 	}
+	return nil
+}
+
+// Returns the email address to use in the "To" header of the email
+func (r *Result) FormatAddress() string {
+	addr := r.Email
+	if r.FirstName != "" && r.LastName != "" {
+		a := &mail.Address{
+			Name:    fmt.Sprintf("%s %s", r.FirstName, r.LastName),
+			Address: r.Email,
+		}
+		addr = a.String()
+	}
+	return addr
 }
 
 // GetResult returns the Result object from the database

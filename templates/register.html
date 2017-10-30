@@ -12,13 +12,7 @@
 
     <title>Gophish - {{ .Title }}</title>
 
-    <!-- Bootstrap core CSS -->
-    <link href="/bootstrap/css/bootstrap.css" rel="stylesheet">
-    <!-- Custom styles for this template -->
-    <link href="/css/main.css" rel="stylesheet">
-    <link href="/css/dashboard.css" rel="stylesheet">
-    <link href="/css/flat-ui.css" rel="stylesheet">
-    <link href="/css/font-awesome.min.css" rel="stylesheet">
+    <link href="/css/dist/gophish.css" rel='stylesheet' type='text/css'>
     <link href='https://fonts.googleapis.com/css?family=Source+Sans+Pro:400,300,600,700' rel='stylesheet' type='text/css'>
 </head>
 
@@ -52,16 +46,14 @@
             <h2 class="form-signin-heading">Please register below</h2>
             {{template "flashes" .Flashes}}
             <input type="text" name="username" class="form-control top-input" placeholder="Username" required autofocus/>
-            <input type="password" name="password" class="form-control middle-input" placeholder="Password" required/>
-            <input type="password" name="confirm_password" class="form-control bottom-input" placeholder="Confirm Password" required/>
+            <input type="password" name="password" class="form-control middle-input" placeholder="Password" autocomplete="off" required/>
+            <input type="password" name="confirm_password" class="form-control bottom-input" placeholder="Confirm Password" autocomplete="off" required/>
             <input type="hidden" name="csrf_token" value="{{.Token}}"/>
             <button class="btn btn-lg btn-primary btn-block" type="submit">Register</button>
         </form>
     </div>
     <!-- Placed at the end of the document so the pages load faster -->
-    <script src="/js/jquery.js"></script>
-    <script src="/js/bootstrap.min.js"></script>
-    <script src="/js/ui-bootstrap-0.10.0.min.js"></script>
+    <script src="/js/dist/vendor.min.js"></script>
 </body>
 
 </html>

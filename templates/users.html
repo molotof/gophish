@@ -7,7 +7,7 @@
                 </li>
                 <li><a href="/campaigns">Campaigns</a>
                 </li>
-                <li class="active"><a href="#/users">Users &amp; Groups</a>
+                <li class="active"><a href="/users">Users &amp; Groups</a>
                 </li>
                 <li><a href="/templates">Email Templates</a>
                 </li>
@@ -18,7 +18,7 @@
                 <li><a href="/settings">Settings</a>
                 </li>
                 <li><hr></li>
-                <li><a href="/gophish_user_guide.pdf">User Guide</a>
+                <li><a href="https://gophish.gitbooks.io/user-guide/content/">User Guide</a>
                 </li>
                 <li><a href="/api/">API Documentation</a>
                 </li>
@@ -50,7 +50,7 @@
             <thead>
                 <tr>
                     <th>Name</th>
-                    <th>Members</th>
+                    <th># of Members</th>
                     <th>Modified Date</th>
                     <th class="col-md-2 no-sort"></th>
                 </tr>
@@ -120,8 +120,5 @@
 </div>
 {{end}}
 {{define "scripts"}}
-<script src="/js/jquery.ui.widget.js"></script>
-<script src="/js/jquery.iframe-transport.js"></script>
-<script src="/js/jquery.fileupload.js"></script>
-<script src="/js/app/users.js"></script>
+<script src="/js/dist/app/users.min.js"></script>
 {{end}}

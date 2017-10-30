@@ -6,6 +6,7 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"io"
 	"log"
 	"net/mail"
@@ -35,7 +36,7 @@ func New() *Worker {
 func (w *Worker) Start() {
 	Logger.Println("Background Worker Started Successfully - Waiting for Campaigns")
 	for t := range time.Tick(1 * time.Minute) {
-		cs, err := models.GetQueuedCampaigns(t)
+		cs, err := models.GetQueuedCampaigns(t.UTC())
 		// Not really sure of a clean way to catch errors per campaign...
 		if err != nil {
 			Logger.Println(err)
@@ -113,7 +114,7 @@ func processCampaign(c *models.Campaign) {
 	// Send each email
 	e := gomail.NewMessage()
 	for _, t := range c.Results {
-		e.SetHeader("From", c.SMTP.FromAddress)
+		e.SetAddressHeader("From", f.Address, f.Name)
 		td := struct {
 			models.Result
 			URL         string
@@ -124,10 +125,39 @@ func processCampaign(c *models.Campaign) {
 			t,
 			c.URL + "?rid=" + t.RId,
 			c.URL + "/track?rid=" + t.RId,
-			"<img style='display: none' src='" + c.URL + "/track?rid=" + t.RId + "'/>",
+			"<img alt='' style='display: none' src='" + c.URL + "/track?rid=" + t.RId + "'/>",
 			fn,
 		}
-		// Parse the templates
+
+		// Parse the customHeader templates
+		for _, header := range c.SMTP.Headers {
+			parsedHeader := struct {
+				Key   bytes.Buffer
+				Value bytes.Buffer
+			}{}
+			keytmpl, err := template.New("text_template").Parse(header.Key)
+			if err != nil {
+				Logger.Println(err)
+			}
+			err = keytmpl.Execute(&parsedHeader.Key, td)
+			if err != nil {
+				Logger.Println(err)
+			}
+
+			valtmpl, err := template.New("text_template").Parse(header.Value)
+			if err != nil {
+				Logger.Println(err)
+			}
+			err = valtmpl.Execute(&parsedHeader.Value, td)
+			if err != nil {
+				Logger.Println(err)
+			}
+
+			// Add our header immediately
+			e.SetHeader(parsedHeader.Key.String(), parsedHeader.Value.String())
+		}
+
+		// Parse remaining templates
 		var subjBuff bytes.Buffer
 		tmpl, err := template.New("text_template").Parse(c.Template.Subject)
 		if err != nil {
@@ -139,7 +169,7 @@ func processCampaign(c *models.Campaign) {
 		}
 		e.SetHeader("Subject", subjBuff.String())
 		Logger.Println("Creating email using template")
-		e.SetHeader("To", t.Email)
+		e.SetHeader("To", t.FormatAddress())
 		if c.Template.Text != "" {
 			var textBuff bytes.Buffer
 			tmpl, err = template.New("text_template").Parse(c.Template.Text)
@@ -170,12 +200,13 @@ func processCampaign(c *models.Campaign) {
 		}
 		// Attach the files
 		for _, a := range c.Template.Attachments {
-			e.Attach(func(a models.Attachment) (string, gomail.FileSetting) {
+			e.Attach(func(a models.Attachment) (string, gomail.FileSetting, gomail.FileSetting) {
+				h := map[string][]string{"Content-ID": {fmt.Sprintf("<%s>", a.Name)}}
 				return a.Name, gomail.SetCopyFunc(func(w io.Writer) error {
 					decoder := base64.NewDecoder(base64.StdEncoding, strings.NewReader(a.Content))
 					_, err = io.Copy(w, decoder)
 					return err
-				})
+				}), gomail.SetHeader(h)
 			}(a))
 		}
 		Logger.Printf("Sending Email to %s\n", t.Email)
@@ -218,6 +249,11 @@ func processCampaign(c *models.Campaign) {
 }
 
 func SendTestEmail(s *models.SendTestEmailRequest) error {
+	f, err := mail.ParseAddress(s.SMTP.FromAddress)
+	if err != nil {
+		Logger.Println(err)
+		return err
+	}
 	hp := strings.Split(s.SMTP.Host, ":")
 	if len(hp) < 2 {
 		hp = append(hp, "25")
@@ -243,10 +279,37 @@ func SendTestEmail(s *models.SendTestEmailRequest) error {
 		Logger.Println(err)
 		return err
 	}
-	e := gomail.NewMessage()
-	e.SetHeader("From", s.SMTP.FromAddress)
-	e.SetHeader("To", s.Email)
 	Logger.Println("Creating email using template")
+	e := gomail.NewMessage()
+	// Parse the customHeader templates
+	for _, header := range s.SMTP.Headers {
+		parsedHeader := struct {
+			Key   bytes.Buffer
+			Value bytes.Buffer
+		}{}
+		keytmpl, err := template.New("text_template").Parse(header.Key)
+		if err != nil {
+			Logger.Println(err)
+		}
+		err = keytmpl.Execute(&parsedHeader.Key, s)
+		if err != nil {
+			Logger.Println(err)
+		}
+
+		valtmpl, err := template.New("text_template").Parse(header.Value)
+		if err != nil {
+			Logger.Println(err)
+		}
+		err = valtmpl.Execute(&parsedHeader.Value, s)
+		if err != nil {
+			Logger.Println(err)
+		}
+
+		// Add our header immediately
+		e.SetHeader(parsedHeader.Key.String(), parsedHeader.Value.String())
+	}
+	e.SetAddressHeader("From", f.Address, f.Name)
+	e.SetHeader("To", s.FormatAddress())
 	// Parse the templates
 	var subjBuff bytes.Buffer
 	tmpl, err := template.New("text_template").Parse(s.Template.Subject)

@@ -14,10 +14,10 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/gophish/gophish/auth"
+	ctx "github.com/gophish/gophish/context"
 	"github.com/gophish/gophish/models"
 	"github.com/gophish/gophish/util"
 	"github.com/gophish/gophish/worker"
-	ctx "github.com/gorilla/context"
 	"github.com/gorilla/mux"
 	"github.com/jinzhu/gorm"
 	"github.com/jordan-wright/email"
@@ -87,6 +87,20 @@ func API_Campaigns(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// API_Campaigns_Summary returns the summary for the current user's campaigns
+func API_Campaigns_Summary(w http.ResponseWriter, r *http.Request) {
+	switch {
+	case r.Method == "GET":
+		cs, err := models.GetCampaignSummaries(ctx.Get(r, "user_id").(int64))
+		if err != nil {
+			Logger.Println(err)
+			JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusInternalServerError)
+			return
+		}
+		JSONResponse(w, cs, http.StatusOK)
+	}
+}
+
 // API_Campaigns_Id returns details about the requested campaign. If the campaign is not
 // valid, API_Campaigns_Id returns null.
 func API_Campaigns_Id(w http.ResponseWriter, r *http.Request) {
@@ -125,6 +139,26 @@ func API_Campaigns_Id_Results(w http.ResponseWriter, r *http.Request) {
 	if r.Method == "GET" {
 		JSONResponse(w, cr, http.StatusOK)
 		return
+	}
+}
+
+// API_Campaigns_Id_Summary returns just the summary for a given campaign.
+func API_Campaign_Id_Summary(w http.ResponseWriter, r *http.Request) {
+	vars := mux.Vars(r)
+	id, _ := strconv.ParseInt(vars["id"], 0, 64)
+	switch {
+	case r.Method == "GET":
+		cs, err := models.GetCampaignSummary(id, ctx.Get(r, "user_id").(int64))
+		if err != nil {
+			if err == gorm.ErrRecordNotFound {
+				JSONResponse(w, models.Response{Success: false, Message: "Campaign not found"}, http.StatusNotFound)
+			} else {
+				JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusInternalServerError)
+			}
+			Logger.Println(err)
+			return
+		}
+		JSONResponse(w, cs, http.StatusOK)
 	}
 }
 
@@ -169,15 +203,28 @@ func API_Groups(w http.ResponseWriter, r *http.Request) {
 			JSONResponse(w, models.Response{Success: false, Message: "Group name already in use"}, http.StatusConflict)
 			return
 		}
-		g.ModifiedDate = time.Now()
+		g.ModifiedDate = time.Now().UTC()
 		g.UserId = ctx.Get(r, "user_id").(int64)
 		err = models.PostGroup(&g)
 		if err != nil {
 			JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusBadRequest)
 			return
 		}
-		w.Header().Set("Location", "http://localhost:3333/api/groups/"+string(g.Id))
 		JSONResponse(w, g, http.StatusCreated)
+	}
+}
+
+// API_Groups_Summary returns a summary of the groups owned by the current user.
+func API_Groups_Summary(w http.ResponseWriter, r *http.Request) {
+	switch {
+	case r.Method == "GET":
+		gs, err := models.GetGroupSummaries(ctx.Get(r, "user_id").(int64))
+		if err != nil {
+			Logger.Println(err)
+			JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusInternalServerError)
+			return
+		}
+		JSONResponse(w, gs, http.StatusOK)
 	}
 }
 
@@ -209,11 +256,26 @@ func API_Groups_Id(w http.ResponseWriter, r *http.Request) {
 			JSONResponse(w, models.Response{Success: false, Message: "Error: /:id and group_id mismatch"}, http.StatusInternalServerError)
 			return
 		}
-		g.ModifiedDate = time.Now()
+		g.ModifiedDate = time.Now().UTC()
 		g.UserId = ctx.Get(r, "user_id").(int64)
 		err = models.PutGroup(&g)
 		if err != nil {
 			JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusBadRequest)
+			return
+		}
+		JSONResponse(w, g, http.StatusOK)
+	}
+}
+
+// API_Groups_Id_Summary returns a summary of the groups owned by the current user.
+func API_Groups_Id_Summary(w http.ResponseWriter, r *http.Request) {
+	switch {
+	case r.Method == "GET":
+		vars := mux.Vars(r)
+		id, _ := strconv.ParseInt(vars["id"], 0, 64)
+		g, err := models.GetGroupSummary(id, ctx.Get(r, "user_id").(int64))
+		if err != nil {
+			JSONResponse(w, models.Response{Success: false, Message: "Group not found"}, http.StatusNotFound)
 			return
 		}
 		JSONResponse(w, g, http.StatusOK)
@@ -243,7 +305,7 @@ func API_Templates(w http.ResponseWriter, r *http.Request) {
 			JSONResponse(w, models.Response{Success: false, Message: "Template name already in use"}, http.StatusConflict)
 			return
 		}
-		t.ModifiedDate = time.Now()
+		t.ModifiedDate = time.Now().UTC()
 		t.UserId = ctx.Get(r, "user_id").(int64)
 		err = models.PostTemplate(&t)
 		if err == models.ErrTemplateNameNotSpecified {
@@ -292,7 +354,7 @@ func API_Templates_Id(w http.ResponseWriter, r *http.Request) {
 			JSONResponse(w, models.Response{Success: false, Message: "Error: /:id and template_id mismatch"}, http.StatusBadRequest)
 			return
 		}
-		t.ModifiedDate = time.Now()
+		t.ModifiedDate = time.Now().UTC()
 		t.UserId = ctx.Get(r, "user_id").(int64)
 		err = models.PutTemplate(&t)
 		if err != nil {
@@ -328,7 +390,7 @@ func API_Pages(w http.ResponseWriter, r *http.Request) {
 			Logger.Println(err)
 			return
 		}
-		p.ModifiedDate = time.Now()
+		p.ModifiedDate = time.Now().UTC()
 		p.UserId = ctx.Get(r, "user_id").(int64)
 		err = models.PostPage(&p)
 		if err != nil {
@@ -369,7 +431,7 @@ func API_Pages_Id(w http.ResponseWriter, r *http.Request) {
 			JSONResponse(w, models.Response{Success: false, Message: "/:id and /:page_id mismatch"}, http.StatusBadRequest)
 			return
 		}
-		p.ModifiedDate = time.Now()
+		p.ModifiedDate = time.Now().UTC()
 		p.UserId = ctx.Get(r, "user_id").(int64)
 		err = models.PutPage(&p)
 		if err != nil {
@@ -405,7 +467,7 @@ func API_SMTP(w http.ResponseWriter, r *http.Request) {
 			Logger.Println(err)
 			return
 		}
-		s.ModifiedDate = time.Now()
+		s.ModifiedDate = time.Now().UTC()
 		s.UserId = ctx.Get(r, "user_id").(int64)
 		err = models.PostSMTP(&s)
 		if err != nil {
@@ -451,7 +513,7 @@ func API_SMTP_Id(w http.ResponseWriter, r *http.Request) {
 			JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusBadRequest)
 			return
 		}
-		s.ModifiedDate = time.Now()
+		s.ModifiedDate = time.Now().UTC()
 		s.UserId = ctx.Get(r, "user_id").(int64)
 		err = models.PutSMTP(&s)
 		if err != nil {
@@ -551,7 +613,7 @@ func API_Import_Site(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	// Insert the base href tag to better handle relative resources
-	d, err := goquery.NewDocumentFromReader(resp.Body)
+	d, err := goquery.NewDocumentFromResponse(resp)
 	if err != nil {
 		JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusBadRequest)
 		return
@@ -621,6 +683,7 @@ func API_Send_Test_Email(w http.ResponseWriter, r *http.Request) {
 		if err == gorm.ErrRecordNotFound {
 			Logger.Printf("Error - Template %s does not exist", s.Template.Name)
 			JSONResponse(w, models.Response{Success: false, Message: models.ErrTemplateNotFound.Error()}, http.StatusBadRequest)
+			return
 		} else if err != nil {
 			Logger.Println(err)
 			JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusBadRequest)
@@ -631,15 +694,15 @@ func API_Send_Test_Email(w http.ResponseWriter, r *http.Request) {
 	// If a complete sending profile is provided use it
 	if err := s.SMTP.Validate(); err != nil {
 		// Otherwise get the SMTP requested by name
-		s.SMTP, err = models.GetSMTPByName(s.SMTP.Name, ctx.Get(r, "user_id").(int64))
-		if err == gorm.ErrRecordNotFound {
-			Logger.Printf("Error - Sending profile %s does not exist", s.SMTP.Name)
-			JSONResponse(w, models.Response{Success: false, Message: models.ErrSMTPNotFound.Error()}, http.StatusBadRequest)
-		} else if err != nil {
+		smtp, lookupErr := models.GetSMTPByName(s.SMTP.Name, ctx.Get(r, "user_id").(int64))
+		// If the Sending Profile doesn't exist, let's err on the side
+		// of caution and assume that the validation failure was more important.
+		if lookupErr != nil {
 			Logger.Println(err)
 			JSONResponse(w, models.Response{Success: false, Message: err.Error()}, http.StatusBadRequest)
 			return
 		}
+		s.SMTP = smtp
 	}
 
 	// Send the test email

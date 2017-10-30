@@ -1,6 +1,8 @@
 package models
 
 import (
+	"net/mail"
+	"regexp"
 	"strings"
 	"testing"
 
@@ -18,8 +20,9 @@ type ModelsSuite struct{}
 var _ = check.Suite(&ModelsSuite{})
 
 func (s *ModelsSuite) SetUpSuite(c *check.C) {
+	config.Conf.DBName = "sqlite3"
 	config.Conf.DBPath = ":memory:"
-	config.Conf.MigrationsPath = "../db/migrations/"
+	config.Conf.MigrationsPath = "../db/db_sqlite3/migrations/"
 	err := Setup()
 	if err != nil {
 		c.Fatalf("Failed creating database: %v", err)
@@ -244,6 +247,24 @@ func (s *ModelsSuite) TestPostSMTPNoFrom(c *check.C) {
 	c.Assert(err, check.Equals, ErrFromAddressNotSpecified)
 }
 
+func (s *ModelsSuite) TestPostSMTPValidHeader(c *check.C) {
+	smtp := SMTP{
+		Name:        "Test SMTP",
+		Host:        "1.1.1.1:25",
+		FromAddress: "Foo Bar <foo@example.com>",
+		UserId:      1,
+		Headers: []Header{
+			Header{Key: "Reply-To", Value: "test@example.com"},
+			Header{Key: "X-Mailer", Value: "gophish"},
+		},
+	}
+	err = PostSMTP(&smtp)
+	c.Assert(err, check.Equals, nil)
+	ss, err := GetSMTPs(1)
+	c.Assert(err, check.Equals, nil)
+	c.Assert(len(ss), check.Equals, 1)
+}
+
 func (s *ModelsSuite) TestPostPage(c *check.C) {
 	html := `<html>
 			<head></head>
@@ -319,4 +340,30 @@ func (s *ModelsSuite) TestPostPage(c *check.C) {
 		_, ok = f.Find("input").Attr("name")
 		c.Assert(ok, check.Equals, false)
 	})
+}
+
+func (s *ModelsSuite) TestGenerateResultId(c *check.C) {
+	r := Result{}
+	r.GenerateId()
+	match, err := regexp.Match("[a-zA-Z0-9]{7}", []byte(r.RId))
+	c.Assert(err, check.Equals, nil)
+	c.Assert(match, check.Equals, true)
+}
+
+func (s *ModelsSuite) TestFormatAddress(c *check.C) {
+	r := Result{
+		FirstName: "John",
+		LastName:  "Doe",
+		Email:     "johndoe@example.com",
+	}
+	expected := &mail.Address{
+		Name:    "John Doe",
+		Address: "johndoe@example.com",
+	}
+	c.Assert(r.FormatAddress(), check.Equals, expected.String())
+
+	r = Result{
+		Email: "johndoe@example.com",
+	}
+	c.Assert(r.FormatAddress(), check.Equals, r.Email)
 }

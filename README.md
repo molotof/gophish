@@ -3,22 +3,13 @@
 Gophish
 =======
 
-[![Join the chat at https://gitter.im/gophish/gophish](https://badges.gitter.im/gophish/gophish.svg)](https://gitter.im/gophish/gophish?utm_source=badge&utm_medium=badge&utm_campaign=pr-badge&utm_content=badge)
-
 [![Build Status](https://travis-ci.org/gophish/gophish.svg?branch=master)](https://travis-ci.org/gophish/gophish) [![GoDoc](https://godoc.org/github.com/gophish/gophish?status.svg)](https://godoc.org/github.com/gophish/gophish)
 
 Gophish: Open-Source Phishing Toolkit
 
 [Gophish](https://getgophish.com) is an open-source phishing toolkit designed for businesses and penetration testers. It provides the ability to quickly and easily setup and execute phishing engagements and security awareness training.
 
-###Current Status
-**Update 08/06/2016**
-
-We're working to finalize the 0.2 release with minor bug fixes and docs cleanup. We will be releasing binaries for all platforms as soon as the code is ready to go.
-
-_Get hyped!_
-
-###Install
+### Install
 
 Installation of Gophish is dead-simple - just download and extract the zip containing the [release for your system](https://github.com/gophish/gophish/releases/), and run the binary. Gophish has binary releases for Windows, Mac, and Linux platforms.
 
@@ -30,24 +21,24 @@ To build Gophish from source, simply run ```go get github.com/gophish/gophish```
 ### Docker
 You can also use Gophish via an unofficial Docker container [here](https://hub.docker.com/r/matteoggl/gophish/).
 
-###Setup
+### Setup
 After running the Gophish binary, open an Internet browser to http://localhost:3333 and login with the default username (admin) and password (gophish).
 
-###Documentation
+### Documentation
 
 Documentation can be found on our [site](http://getgophish.com/documentation). Find something missing? Let us know by filing an issue!
 
-###Issues
+### Issues
 
 Find a bug? Want more features? Find something missing in the documentation? Let us know! Please don't hesitate to [file an issue](https://github.com/gophish/gophish/issues/new) and we'll get right on it.
 
-###License
+### License
 ```
 Gophish - Open-Source Phishing Framework
 
 The MIT License (MIT)
 
-Copyright (c) 2013 - 2016 Jordan Wright
+Copyright (c) 2013 - 2017 Jordan Wright
 
 Permission is hereby granted, free of charge, to any person obtaining a copy
 of this software ("Gophish Community Edition") and associated documentation files (the "Software"), to deal
